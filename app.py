@@ -14,10 +14,6 @@ from fraud_scorer import FraudScorer
 from product_analyzer import ProductAnalyzer
 from seller_analyzer import SellerAnalyzer
 
-import os
-print(f"Current working directory: {os.getcwd()}")
-print(f"Models folder contents: {os.listdir('models')}")
-
 # Load model & data
 @st.cache_resource
 def load_model():
