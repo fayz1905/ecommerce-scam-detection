@@ -1,0 +1,8 @@
+Best Model: XGBoost
+Training time: 21.68 seconds
+Training time: 0.36 minutes
+Accuracy: 0.8092
+Precision: 0.1657
+Recall: 0.6954
+F1-Score: 0.2677
+ROC-AUC: 0.8211
