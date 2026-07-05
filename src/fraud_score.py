@@ -31,11 +31,9 @@ class FraudScoreEngine:
             'final_score': float (0-100)
         }
         """
-        # 1. ML model score (0-1 -> 0-100)
         ml_prob = self.scorer.score_transaction(transaction_data)
         ml_score = ml_prob * 100
 
-        # 2. Category risk (from historical fraud rate of product category)
         category_risk = 0
         if self.product_analyzer:
             fraud_by_cat = self.product_analyzer.get_fraud_rate_by_category()
@@ -43,7 +41,6 @@ class FraudScoreEngine:
             if fraud_by_cat is not None and category in fraud_by_cat.index:
                 category_risk = fraud_by_cat.loc[category, 'Fraud Rate'] * 100
 
-        # 3. Location risk (from historical fraud rate of location)
         location_risk = 0
         if self.seller_analyzer:
             fraud_by_loc = self.seller_analyzer.get_fraud_rate_by_location()
@@ -51,14 +48,49 @@ class FraudScoreEngine:
             if fraud_by_loc is not None and location in fraud_by_loc.index:
                 location_risk = fraud_by_loc.loc[location, 'Fraud Rate'] * 100
 
-        # 4. Weighted final score
-        # ML model 70%, category risk 15%, location risk 15%
         final_score = (ml_score * 0.70) + (category_risk * 0.15) + (location_risk * 0.15)
-        final_score = min(final_score, 100)  # cap at 100
+        final_score = min(final_score, 100)
 
         return {
-            'ml_score': round(ml_score, 2),
-            'category_risk': round(category_risk, 2),
-            'location_risk': round(location_risk, 2),
-            'final_score': round(final_score, 2)
+            'ml_score': round(float(ml_score), 2),
+            'category_risk': round(float(category_risk), 2),
+            'location_risk': round(float(location_risk), 2),
+            'final_score': round(float(final_score), 2)
         }
+
+    def classify_risk(self, final_score):
+        """
+        Classify score into 3 categories:
+        - Safe: < 30
+        - Suspicious: 30-70
+        - Fraud: > 70
+        """
+        if final_score < 30:
+            return {
+                'label': 'Safe',
+                'color': 'green',
+                'icon': '🟢',
+                'description': 'Normal transaction, low risk'
+            }
+        elif final_score <= 70:
+            return {
+                'label': 'Suspicious',
+                'color': 'orange',
+                'icon': '🟡',
+                'description': 'Requires manual review, medium risk'
+            }
+        else:
+            return {
+                'label': 'Fraud',
+                'color': 'red',
+                'icon': '🔴',
+                'description': 'High risk, likely fraudulent'
+            }
+
+    def analyze_transaction(self, transaction_data):
+        """
+        Full pipeline: scoring + classification in one call
+        """
+        score_result = self.fraud_score(transaction_data)
+        risk_result = self.classify_risk(score_result['final_score'])
+        return {**score_result, **risk_result}
