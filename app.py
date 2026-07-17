@@ -3,7 +3,9 @@ import pandas as pd
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.append(str(PROJECT_ROOT / "src"))
 
 from data_loader import ensure_all_files
 ensure_all_files()
