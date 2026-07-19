@@ -4,6 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+
 class FraudScorer:
     def __init__(self, model_path=None, scaler_path=None, encoders_path=None):
         if model_path is None:
@@ -18,12 +19,17 @@ class FraudScorer:
         self.label_encoders = joblib.load(encoders_path)
         self.feature_names = self.scaler.feature_names_in_
 
+        # Precompute fast dict lookups once, instead of scanning encoder.classes_ every call
+        self.encoder_lookup = {
+            col: {cls: idx for idx, cls in enumerate(encoder.classes_)}
+            for col, encoder in self.label_encoders.items()
+        }
+
     def _encode(self, df):
-        for col, encoder in self.label_encoders.items():
+        df = df.copy()
+        for col, lookup in self.encoder_lookup.items():
             if col in df.columns:
-                df[col] = df[col].astype(str).apply(
-                    lambda x: encoder.transform([x])[0] if x in encoder.classes_ else -1
-                )
+                df[col] = df[col].astype(str).apply(lambda x: lookup.get(x, -1))
         return df
 
     def score_transaction(self, transaction_data):

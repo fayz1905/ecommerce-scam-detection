@@ -61,7 +61,7 @@ def compute_archetype_data(_engine, df):
 with st.spinner("Loading models and data..."):
     engine, df = load_engine()
 
-page = st.sidebar.selectbox("Pages", ["Dashboard Overview", "Check a Transaction", "Analytics", "Archetype Clusters", "Info"])
+page = st.sidebar.selectbox("Pages", ["Dashboard Overview", "Check a Transaction", "Analytics", "Archetype Clusters", "Batch Alerts", "Info"])
 
 if page == "Dashboard Overview":
     st.header("📊 Dashboard Overview")
@@ -166,6 +166,69 @@ elif page == "Archetype Clusters":
     ax.set_ylabel('PCA Component 2')
     ax.set_title('Transaction Archetype Clusters (PCA Projection)')
     st.pyplot(fig)
+
+elif page == "Batch Alerts":
+    st.header("🚨 Batch Transaction Alerts")
+    st.write("Upload a CSV of transactions to screen them all at once and flag high-risk cases.")
+
+    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+
+    if uploaded_file is not None:
+        batch_df = pd.read_csv(uploaded_file)
+
+        if len(batch_df) > 1000:
+            st.warning("Large file detected. Processing may take a while — consider uploading a smaller sample for quick testing.")
+
+        required_cols = ["Transaction Amount", "Product Category", "Quantity", "Customer Age",
+                          "Customer Location", "Account Age Days", "Transaction Hour",
+                          "Shipping Address", "Billing Address", "Payment Method", "Device Used"]
+        missing_cols = [c for c in required_cols if c not in batch_df.columns]
+
+        if missing_cols:
+            st.error(f"Missing required columns: {missing_cols}")
+        else:
+            with st.spinner(f"Scoring {len(batch_df)} transactions..."):
+                results = []
+                for idx, row in batch_df.iterrows():
+                    transaction_data = row.to_dict()
+                    if "IP Address" not in transaction_data:
+                        transaction_data["IP Address"] = "0.0.0.0"
+                    result = engine.analyze_transaction(transaction_data)
+                    results.append(result)
+
+                results_df = pd.DataFrame(results)
+                combined_df = pd.concat([batch_df.reset_index(drop=True), results_df], axis=1)
+
+            st.success(f"Scored {len(combined_df)} transactions")
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Safe", (combined_df['label'] == 'Safe').sum())
+            col2.metric("Suspicious", (combined_df['label'] == 'Suspicious').sum())
+            col3.metric("Fraud", (combined_df['label'] == 'Fraud').sum())
+
+            st.subheader("Flagged Transactions (Suspicious + Fraud)")
+            flagged = combined_df[combined_df['label'] != 'Safe'].sort_values('final_score', ascending=False)
+            st.dataframe(
+                flagged[['Transaction Amount', 'Product Category', 'Customer Location',
+                         'final_score', 'label']],
+                use_container_width=True
+            )
+
+            st.subheader("All Results")
+            st.dataframe(
+                combined_df[['Transaction Amount', 'Product Category', 'Customer Location',
+                             'ml_score', 'category_risk', 'location_risk', 'archetype_risk',
+                             'final_score', 'label']],
+                use_container_width=True
+            )
+
+            csv_export = combined_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Download Full Results as CSV",
+                data=csv_export,
+                file_name="scored_transactions.csv",
+                mime="text/csv"
+            )
 
 else:
     st.header("ℹ️ About This Project")
