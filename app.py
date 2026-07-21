@@ -116,13 +116,27 @@ elif page == "Check a Transaction":
 
 elif page == "Analytics":
     st.header("📈 Analytics")
+    import matplotlib.pyplot as plt
+
     st.subheader("Fraud Rate by Product Category")
     cat_fraud = df.groupby("Product Category")["Is Fraudulent"].mean().sort_values(ascending=False) * 100
-    st.bar_chart(cat_fraud)
+
+    fig1, ax1 = plt.subplots(figsize=(8, 4))
+    cat_fraud.plot(kind='bar', ax=ax1, color='indianred')
+    ax1.set_ylabel("Fraud Rate (%)")
+    ax1.set_ylim(cat_fraud.min() * 0.8, cat_fraud.max() * 1.2)
+    plt.xticks(rotation=45, ha='right')
+    st.pyplot(fig1)
 
     st.subheader("Fraud Rate by Payment Method")
     pay_fraud = df.groupby("Payment Method")["Is Fraudulent"].mean().sort_values(ascending=False) * 100
-    st.bar_chart(pay_fraud)
+
+    fig2, ax2 = plt.subplots(figsize=(8, 4))
+    pay_fraud.plot(kind='bar', ax=ax2, color='steelblue')
+    ax2.set_ylabel("Fraud Rate (%)")
+    ax2.set_ylim(pay_fraud.min() * 0.8, pay_fraud.max() * 1.2)
+    plt.xticks(rotation=45, ha='right')
+    st.pyplot(fig2)
 
 elif page == "Archetype Clusters":
     st.header("🧩 Transaction Archetype Clusters")
@@ -174,7 +188,15 @@ elif page == "Batch Alerts":
     uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
     if uploaded_file is not None:
-        batch_df = pd.read_csv(uploaded_file)
+        try:
+            batch_df = pd.read_csv(uploaded_file)
+        except pd.errors.EmptyDataError:
+            st.error("The uploaded file is empty or has no readable data. Please upload a valid CSV with at least one transaction.")
+            st.stop()
+
+        if len(batch_df) == 0:
+            st.error("The uploaded file is empty. Please upload a CSV with at least one transaction.")
+            st.stop()
 
         if len(batch_df) > 1000:
             st.warning("Large file detected. Processing may take a while — consider uploading a smaller sample for quick testing.")
@@ -187,6 +209,10 @@ elif page == "Batch Alerts":
         if missing_cols:
             st.error(f"Missing required columns: {missing_cols}")
         else:
+            blank_rows = batch_df[required_cols].isnull().any(axis=1).sum()
+            if blank_rows > 0:
+                st.warning(f"{blank_rows} row(s) have missing values in required fields. These rows will still be scored, but results may be less accurate.")
+
             with st.spinner(f"Scoring {len(batch_df)} transactions..."):
                 results = []
                 for idx, row in batch_df.iterrows():
