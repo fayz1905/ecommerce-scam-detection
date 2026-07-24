@@ -11,6 +11,7 @@ from data_loader import ensure_all_files
 ensure_all_files()
 
 from fraud_score import FraudScoreEngine
+from phishing_checker import PhishingChecker
 
 st.set_page_config(page_title="Fraud Detection", layout="wide")
 st.title("🚨 E-Commerce Fraud Detection Dashboard")
@@ -25,6 +26,11 @@ def load_engine():
         dataframe=df
     )
     return engine, df
+
+
+@st.cache_resource
+def load_phishing_checker():
+    return PhishingChecker(model_path=str(PROJECT_ROOT / "models" / "phishing_model.joblib"))
 
 
 @st.cache_data
@@ -60,8 +66,10 @@ def compute_archetype_data(_engine, df):
 
 with st.spinner("Loading models and data..."):
     engine, df = load_engine()
+    phishing_checker = load_phishing_checker()
 
-page = st.sidebar.selectbox("Pages", ["Dashboard Overview", "Check a Transaction", "Analytics", "Archetype Clusters", "Batch Alerts", "Info"])
+
+page = st.sidebar.selectbox("Pages", ["Dashboard Overview", "Check a Transaction", "Analytics", "Archetype Clusters", "Batch Alerts", "Website Risk Checker", "Info"])
 
 if page == "Dashboard Overview":
     st.header("📊 Dashboard Overview")
@@ -256,10 +264,36 @@ elif page == "Batch Alerts":
                 mime="text/csv"
             )
 
+elif page == "Website Risk Checker":
+    st.header("🔗 Website Risk Checker")
+    st.write("Paste a URL below to check whether it shows characteristics of a phishing website.")
+
+    url_input = st.text_input("Website URL", placeholder="https://example.com")
+    check_button = st.button("Check Website")
+
+    st.caption("Note: This checker is trained primarily on Western/English-language URL patterns and may be less reliable for regional domains (e.g., .co.id, .co.uk). Always use additional judgment for suspicious sites.")
+
+    if check_button and url_input:
+        with st.spinner("Analyzing URL..."):
+            result = phishing_checker.check_url(url_input)
+
+        if result['prediction'] == 'Legitimate':
+            st.success(f"✅ Legitimate — {result['legitimate_probability']}% confidence")
+        else:
+            st.error(f"⚠️ Phishing — {result['phishing_probability']}% confidence")
+
+        col1, col2 = st.columns(2)
+        col1.metric("Legitimate Probability", f"{result['legitimate_probability']}%")
+        col2.metric("Phishing Probability", f"{result['phishing_probability']}%")
+    elif check_button and not url_input:
+        st.warning("Please enter a URL first.")
+
 else:
     st.header("ℹ️ About This Project")
     st.write("""
     This dashboard is part of a CCRI summer internship project detecting e-commerce fraud
-    using a two-layer scoring system: an XGBoost classifier (Layer 1) and K-Means transaction
-    archetype clustering (Layer 2), fused into a single composite fraud risk score.
+    and online scams. It combines two independent modules: a transaction fraud detection
+    system (XGBoost classifier and K-Means archetype clustering, fused into a composite
+    risk score), and a phishing website checker (Random Forest classifier trained on
+    URL structural features).
     """)
