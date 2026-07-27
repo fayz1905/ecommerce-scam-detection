@@ -146,6 +146,17 @@ elif page == "Analytics":
     plt.xticks(rotation=45, ha='right')
     st.pyplot(fig2)
 
+    st.subheader("Top 15 Highest-Risk Locations")
+    loc_fraud = df.groupby("Customer Location")["Is Fraudulent"].agg(['mean', 'count'])
+    loc_fraud = loc_fraud[loc_fraud['count'] >= 10]  # filter out locations with too few transactions to be meaningful
+    top_locations = (loc_fraud['mean'] * 100).sort_values(ascending=False).head(15)
+
+    fig3, ax3 = plt.subplots(figsize=(8, 5))
+    top_locations.plot(kind='barh', ax=ax3, color='darkorange')
+    ax3.set_xlabel("Fraud Rate (%)")
+    ax3.invert_yaxis()
+    st.pyplot(fig3) 
+
 elif page == "Archetype Clusters":
     st.header("🧩 Transaction Archetype Clusters")
     st.write("Unsupervised clustering groups transactions by behavioral pattern, complementing the ML model with a novel risk signal.")
@@ -292,8 +303,26 @@ else:
     st.header("ℹ️ About This Project")
     st.write("""
     This dashboard is part of a CCRI summer internship project detecting e-commerce fraud
-    and online scams. It combines two independent modules: a transaction fraud detection
-    system (XGBoost classifier and K-Means archetype clustering, fused into a composite
-    risk score), and a phishing website checker (Random Forest classifier trained on
-    URL structural features).
+    and online scams. It combines two independent detection modules:
+    """)
+
+    st.subheader("1. Transaction Fraud Detection")
+    st.write("""
+    An XGBoost classifier and K-Means transaction archetype clustering are combined into
+    a composite fraud risk score. The system analyzes transaction amount, category,
+    location, account age, and behavioral patterns to flag Safe, Suspicious, or Fraud
+    transactions in real time, individually or in bulk via CSV upload.
+    """)
+
+    st.subheader("2. Website Risk Checker")
+    st.write("""
+    A Random Forest classifier trained on URL structural features (length, character
+    composition, domain structure) flags potentially fraudulent or phishing websites
+    from a pasted URL alone.
+    """)
+
+    st.subheader("Dataset Sources")
+    st.write("""
+    - Transaction fraud model: Fraudulent E-Commerce Transaction Dataset
+    - Phishing checker model: PhiUSIIL Phishing URL Dataset (Prasad & Chandra, 2024, Computers & Security)
     """)
