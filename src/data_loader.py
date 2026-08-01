@@ -9,6 +9,9 @@ FILE_URLS = {
     "models/archetype_scaler.pkl": "https://github.com/fayz1905/ecommerce-scam-detection/releases/download/v1.0/archetype_scaler.pkl",
     "src/cluster_risk_map.json": "https://github.com/fayz1905/ecommerce-scam-detection/releases/download/v1.0/cluster_risk_map.json",
     "data/Fraudulent_E-Commerce_Transaction_Data.csv": "https://github.com/fayz1905/ecommerce-scam-detection/releases/download/v1.0/Fraudulent_E-Commerce_Transaction_Data.csv",
+    "models/phishing_model.joblib": "https://github.com/fayz1905/ecommerce-scam-detection/releases/download/v1.0/phishing_model.joblib",
+    "models/review_model.joblib": "https://github.com/fayz1905/ecommerce-scam-detection/releases/download/v1.0/review_model.joblib",
+    "models/review_vectorizer.joblib": "https://github.com/fayz1905/ecommerce-scam-detection/releases/download/v1.0/review_vectorizer.joblib",
 }
 
 def download_if_missing(local_path, url):
