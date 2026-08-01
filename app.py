@@ -12,6 +12,7 @@ ensure_all_files()
 
 from fraud_score import FraudScoreEngine
 from phishing_checker import PhishingChecker
+from review_checker import ReviewChecker
 
 st.set_page_config(page_title="Fraud Detection", layout="wide")
 st.title("🚨 E-Commerce Fraud Detection Dashboard")
@@ -31,6 +32,14 @@ def load_engine():
 @st.cache_resource
 def load_phishing_checker():
     return PhishingChecker(model_path=str(PROJECT_ROOT / "models" / "phishing_model.joblib"))
+
+
+@st.cache_resource
+def load_review_checker():
+    return ReviewChecker(
+        model_path=str(PROJECT_ROOT / "models" / "review_model.joblib"),
+        vectorizer_path=str(PROJECT_ROOT / "models" / "review_vectorizer.joblib")
+    )
 
 
 @st.cache_data
@@ -67,9 +76,10 @@ def compute_archetype_data(_engine, df):
 with st.spinner("Loading models and data..."):
     engine, df = load_engine()
     phishing_checker = load_phishing_checker()
+    review_checker = load_review_checker()
 
 
-page = st.sidebar.selectbox("Pages", ["Dashboard Overview", "Check a Transaction", "Analytics", "Archetype Clusters", "Batch Alerts", "Website Risk Checker", "Info"])
+page = st.sidebar.selectbox("Pages", ["Dashboard Overview", "Check a Transaction", "Analytics", "Archetype Clusters", "Batch Alerts", "Website Risk Checker", "Review Authenticity Checker", "Info"])
 
 if page == "Dashboard Overview":
     st.header("📊 Dashboard Overview")
@@ -299,11 +309,38 @@ elif page == "Website Risk Checker":
     elif check_button and not url_input:
         st.warning("Please enter a URL first.")
 
+elif page == "Review Authenticity Checker":
+    st.header("📝 Review Authenticity Checker")
+    st.write("Paste a product review below to check whether it shows characteristics of AI-generated text.")
+
+    review_input = st.text_area("Review Text", placeholder="Paste a product review here...", height=150)
+    check_review_button = st.button("Check Review")
+
+    st.caption("Note: This checker flags AI-generated writing patterns, not factual accuracy or purchase verification. A genuine review can still be flagged if it uses common templated phrasing.")
+
+    if check_review_button and review_input:
+        if len(review_input.strip()) < 20:
+            st.warning("Review text is very short — predictions may be unreliable. Try a longer review for better accuracy.")
+            
+        with st.spinner("Analyzing review..."):
+            result = review_checker.check_review(review_input)
+
+        if result['prediction'] == 'Likely Genuine':
+            st.success(f"✅ Likely Genuine — {result['or_probability']}% confidence")
+        else:
+            st.error(f"⚠️ Likely AI-Generated — {result['cg_probability']}% confidence")
+
+        col1, col2 = st.columns(2)
+        col1.metric("Genuine Probability", f"{result['or_probability']}%")
+        col2.metric("AI-Generated Probability", f"{result['cg_probability']}%")
+    elif check_review_button and not review_input:
+        st.warning("Please enter a review first.")
+
 else:
     st.header("ℹ️ About This Project")
     st.write("""
     This dashboard is part of a CCRI summer internship project detecting e-commerce fraud
-    and online scams. It combines two independent detection modules:
+    and online scams. It combines three independent detection modules:
     """)
 
     st.subheader("1. Transaction Fraud Detection")
@@ -321,8 +358,15 @@ else:
     from a pasted URL alone.
     """)
 
+    st.subheader("3. Review Authenticity Checker")
+    st.write("""
+    A Logistic Regression classifier trained on TF-IDF text features flags product
+    reviews that show characteristics of AI-generated writing patterns.
+    """)
+
     st.subheader("Dataset Sources")
     st.write("""
     - Transaction fraud model: Fraudulent E-Commerce Transaction Dataset
     - Phishing checker model: PhiUSIIL Phishing URL Dataset (Prasad & Chandra, 2024, Computers & Security)
+    - Review checker model: Fake Reviews Dataset (Kaggle)
     """)
